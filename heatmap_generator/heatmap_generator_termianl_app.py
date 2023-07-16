@@ -3,7 +3,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 import math
-import jpgToArr
+import lib.jpgToArr as jpgToArr
 from scipy.interpolate import griddata
 import cv2
 import matplotlib.colors as mcolors
@@ -11,23 +11,7 @@ from datetime import datetime
 import readline
 from scipy.interpolate import Rbf
 from collections import deque
-
-
-def getCurrentWifiSignalInfo(raw=False):
-    # WifiSignalPlotter.main()
-    result = subprocess.run(
-        ["/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport", '-I'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # print(result.stdout.decode())
-    result = result.stdout.decode()
-    if raw:
-        return result
-    # Use a regular expression to get the first number
-    match = re.findall(r'(-?\d+)', result)
-    if match:
-        return match[0]
-    else:
-        raise Exception("Error getting the RSSI Info")
+import lib.retrieve_signal_strength as retrieve_signal_strength
     
 '''
 return[0] true if there is a neighbor that is not nan
@@ -273,7 +257,7 @@ valid_area_mask = np.zeros((1000, 1000))
 outline_mask = np.zeros((1000, 1000))
 cv2.polylines(outline_mask, vertices, isClosed=True, color=1, thickness=7)
 cv2.fillPoly(valid_area_mask, vertices, 1)
-floor_map = jpgToArr.getCompressedJpgToGreyArr('compressed_image2.jpg')
+floor_map = jpgToArr.getCompressedJpgToGreyArr('floor_plan_res/compressed_image2.jpg')
 
 '''
 TODO: 
@@ -281,10 +265,10 @@ TODO:
 # Rx location should always sample the corners of the valid area to make sure the interpolation map through the valid area
 RSSI_data_location = [] # TODO: init Rx location
 wifi_RSSI_data = []
-data_start = 0
+data_start = 0 # crop data to calculate the rssi data for coreresponding route of car
 RSSI_LIMIT = [-60, 0] # TODO: init RSSI limit
 tx_loc = [507, 780] # TODO: init Tx location for extropolation
-tx_loc = [780, 507] # inverse tx_loc to match
+tx_loc = [780, 507] # TODO: inverse tx_loc to match the map set
 tx_loc = [767, 216]
 directory = "data/"     # TODO: init directory to save data and plot
 data_file = 'rssi_data_car.txt'  # TODO loading data path
@@ -310,7 +294,7 @@ pop_buffer = []
 while True:
     user_input = input("Please enter a command: ")
     if user_input == "":
-        cur_rssi = getCurrentWifiSignalInfo(raw=False)
+        cur_rssi = retrieve_signal_strength.getCurrentWifiSignalInfo(raw=False)
         print(cur_rssi)
         wifi_RSSI_data.append(cur_rssi)
     elif user_input == ".":
