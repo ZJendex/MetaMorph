@@ -1,9 +1,4 @@
-
-
-// // wifi connect init CM
-// char ssid[] = "NETGEAR91";        // your network SSID (name)
-// char pass[] = "basicmint606";  // your network password
-
+const int pumpRPin = 10;  
 const int pumpPin = 11;  
 const int valvePin = 12; 
 
@@ -11,7 +6,8 @@ String command = "";
 void setup() {
   // Initialize serial and wait for port to open:
   Serial.begin(9600);
-  pinMode(pumpPin, OUTPUT);  
+  pinMode(pumpPin, OUTPUT); 
+  pinMode(pumpRPin, OUTPUT);  
   pinMode(valvePin, OUTPUT);
 }
 int blow = 0;
@@ -42,7 +38,7 @@ void loop() {
       stop = 0;
       Serial.write("RELEASE\n");
     }
-    if(val == 3){ // release
+    if(val == 3){ // stop
       blow = 0;
       hold = 0;
       release = 0;
@@ -51,6 +47,7 @@ void loop() {
     }
   }
   if(blow == 1){
+    analogWrite(pumpRPin, 0);
     analogWrite(valvePin, 255);
     analogWrite(pumpPin, 255);
     delay(30);
@@ -58,16 +55,19 @@ void loop() {
     delay(50);
   }
   if(hold == 1){
+    analogWrite(pumpRPin, 0);
     analogWrite(valvePin, 255);
     analogWrite(pumpPin, 0);
   }
   if(release == 1){
+    analogWrite(pumpRPin, 255);
     analogWrite(valvePin, 0);
     analogWrite(pumpPin, 0);
   }
   if(stop == 1){
     analogWrite(valvePin, 0);
     analogWrite(pumpPin, 0);
+    analogWrite(pumpRPin, 0);
   }
 }
 

@@ -6,8 +6,8 @@ from scipy.interpolate import make_interp_spline, BSpline
 
 
 
-data_directory = "../data/July13"  # Replace with the directory path
-plot_directory = "../plot/July13"
+data_directory = "../data/Test"  # Replace with the directory path
+plot_directory = "../plot/Test"
 # Get all file names in the directory
 file_names = [file for file in os.listdir(data_directory) if file.endswith(".txt")]
 print(file_names)
