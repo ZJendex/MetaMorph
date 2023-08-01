@@ -1,4 +1,3 @@
-// arduino wifi rev2
   #include <SPI.h>
   #include <WiFiNINA.h>
   #include <WiFiUdp.h>
@@ -66,9 +65,28 @@
     Serial.println(StartCode);
   }
 
+  // Function to compare two integers for qsort
+int compareIntegers(const void* a, const void* b) {
+  return (*(int*)a - *(int*)b);
+}
+
+// Function to calculate the median of an integer array
+int calculateMedian(int arr[], int size) {
+  // Sort the array in ascending order using qsort
+  qsort(arr, size, sizeof(int), compareIntegers);
+
+  // Find the median value
+  if (size % 2 == 0) {
+    return (arr[size / 2] + arr[size / 2 - 1]) / 2;
+  } else {
+    return arr[size / 2];
+  }
+}
+
   int recording = -1;
   long RSSI_data_cnt = 0;
   long total_rssi = 0;
+  int rssi_data[400];
   void loop() {
     // Check if there are any UDP packets to read
     int packetSize = Udp.parsePacket();
@@ -94,9 +112,9 @@
     }
     IPAddress remoteIp(ip1, ip2, ip3, ip4); // replace with your computer's IP address
     if(recording == 1){
-      
-      total_rssi = total_rssi + WiFi.RSSI();
-      
+      int cur_rssi = WiFi.RSSI();
+      total_rssi = total_rssi + cur_rssi;
+      rssi_data[RSSI_data_cnt] = cur_rssi;
       RSSI_data_cnt += 1;
     }
     // if(RSSI_data_cnt >= 2500){
@@ -107,7 +125,8 @@
     if(recording == 0){
       endTime = millis();
       int long totalTime = endTime - startTime;
-      int long rssi = total_rssi/RSSI_data_cnt;
+      // int long rssi = total_rssi/RSSI_data_cnt;
+      int long rssi = calculateMedian(rssi_data, RSSI_data_cnt);
       String data = "RSSI " + String(rssi) + " " + String(endTime%100);
       Serial.println(data);
       // Ensure the receiver get the message
