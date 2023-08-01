@@ -46,7 +46,6 @@ def get_rssi_from_wifi_board(sock, addr, data_id_buff):
     print(f'Sending message: {user_inputs} to {addr}')
     sock.sendto(user_inputs.encode(), addr)
     while True: # leave until received the RSSI avg Data
-        data = bytes(1024)
         data, addr = sock.recvfrom(1024)
         if len(data) != 0:
             rd = data.decode()  # Decode bytes to string
