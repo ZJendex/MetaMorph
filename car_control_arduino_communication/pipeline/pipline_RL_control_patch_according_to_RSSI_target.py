@@ -131,7 +131,7 @@ rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 # Instantiate the environment and the agent
 # Assume the Target RSSI never change
 env = rl.MyEnvironment(target_value=-33, initial_value=rssi)
-input_dim = env.max_length * 3
+input_dim = env.max_length * 2
 output_dim = env.num_actions  # Number of actions
 agent = rl.PolicyGradientAgent(input_dim, output_dim)
 done = False

@@ -52,10 +52,8 @@ class MyEnvironment(gym.Env):
         # Ensure the length to be max_length 
         self.action_sequence = deque(maxlen=max_length) # dimX for x number of patches
         self.value_sequence = deque(maxlen=max_length)
-        self.target_sequence = deque(maxlen=max_length)
         self.action_sequence.append(HOLD)
         self.value_sequence.append(self.current_value)
-        self.target_sequence.append(self.target_value)
 
 
     def step(self, action, rssi):
@@ -92,6 +90,9 @@ class MyEnvironment(gym.Env):
         else:
             pre_reward = rewardAboveTarget
 
+        cur_reward = abs(self.target_value - self.current_value)
+        pre_reward = abs(self.target_value - self.prev_value)
+
         reward = cur_reward - pre_reward
         print(f"step rewards is {reward}")
 
@@ -110,21 +111,18 @@ class MyEnvironment(gym.Env):
         # Format the State
         self.action_sequence.append(action)
         self.value_sequence.append(self.current_value)
-        self.target_sequence.clear()
-        self.target_sequence.extend([self.target_value] * len(self.value_sequence))
 
-        return np.array([self.action_sequence, self.value_sequence, self.target_sequence]), reward, done, {}
+        return np.array([self.action_sequence, self.value_sequence]), reward, done, {}
         # return np.array([action_count_list, median_RSSI]), reward, done, {}
 
     def reset(self):
         self.current_value = self.prev_value
         self.action_sequence.append(HOLD)
         self.value_sequence.append(self.current_value)
-        self.target_sequence.append(self.target_value)
-        return np.array([self.action_sequence, self.value_sequence, self.target_sequence])
+        return np.array([self.action_sequence, self.value_sequence])
 
     def get_state(self):
-        return np.array([self.action_sequence, self.value_sequence, self.target_sequence])
+        return np.array([self.action_sequence, self.value_sequence])
 
     def render(self, mode='human'):
         print(f'Target Value: {self.target_value}, Current Value: {self.current_value}, Actions: {list(self.action_sequence)}, Values: {list(self.value_sequence)}')
