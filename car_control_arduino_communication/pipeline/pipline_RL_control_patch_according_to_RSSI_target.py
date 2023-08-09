@@ -12,128 +12,61 @@ from collections import deque, Counter
 from gym import spaces
 import numpy as np
 import statistics
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import signal
+import pipline_RL_env_agent as rl
+import matplotlib.pyplot as plt
 
+def signal_handler(sig, frame):
+    # This function will be called when the SIGINT signal is caught (Ctrl+C pressed)
+    print("SIGINT signal caught. Performing cleanup...")
+    # Perform the action you want to do when the signal is caught
+    # For example, save data, close files, release resources, etc.
+    # ...
+    # # Plotting the loss
+    # plt.figure(figsize=(10,5))
+    # plt.plot(losses)
+    # plt.title("Loss over Episodes")
+    # plt.xlabel("Episode")
+    # plt.ylabel("Loss")
+    # plt.grid(True)
+    # plt.show()
 
-# Define the actions
-BLOW = 0
-HOLD = 1
-RELEASE = 2
+    # # Plotting the rewards (which is a proxy for accuracy/performance in RL)
+    # plt.figure(figsize=(10,5))
+    # plt.plot(total_rewards)
+    # plt.title("Total Rewards over Episodes")
+    # plt.xlabel("Episode")
+    # plt.ylabel("Total Rewards")
+    # plt.grid(True)
+    # plt.show()
+    fig, ax1 = plt.subplots(figsize=(10,5))
 
+    color = 'tab:red'
+    # Twin the axes
+    ax2 = ax1.twinx()
 
+    ax1.set_xlabel('Episode')
+    ax1.set_ylabel('Loss', color=color)
+    ax1.plot(losses, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
 
-class MyEnvironment(gym.Env):
-    def __init__(self, target_value, initial_value, max_length=20):
-        super(MyEnvironment, self).__init__()
+    color = 'tab:blue'
+    ax2.set_ylabel('Total Rewards', color=color)
+    ax2.plot(total_rewards, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
 
-        self.action_space = spaces.Discrete(3)  # BLOW, HOLD, RELEASE
-        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(2, max_length))
+    plt.title("Loss and Total Rewards over Episodes")
+    plt.grid(True)
+    plt.savefig("RL_trainning_daily.png")
+    # Exit the program gracefully
+    exit(0)
 
-        # Initial setup
-        self.target_value = target_value
-        self.pre_target_value = target_value
-        self.current_value = initial_value
-        self.prev_value = self.current_value
-        # State Information
-        # Temporary use action sequence and value sequence to represent the state
-        # In the future, we can use the detailed floor plan image + air prerssure of each patch to represent the state
-        self.action_sequence = deque([HOLD], maxlen=max_length)
-        self.value_sequence = deque([self.current_value], maxlen=max_length)
-        self.target_sequence = deque(maxlen=max_length)
-
-    def step(self, action):
-        # Update current value based on action
-        # if action == BLOW:
-        #     self.current_value += 1
-        # elif action == HOLD:
-        #     pass
-        # elif action == RELEASE:
-        self.current_value = rssi
-
-        # Calculate the reward
-        # reward = (self.target_value - self.prev_value) - (self.target_value - self.current_value)
-        reward = abs(self.target_value - self.current_value)
-
-        # Update action and value sequences
-        self.action_sequence.append(action)
-        self.value_sequence.append(self.current_value)
-
-        # Check if the task is done
-        # done = np.isclose(self.current_value, self.target_value, atol=0.01)
-        # NEVER BE DONE ON LEARNING
-        done = False
-
-        self.prev_value = self.current_value
-
-        # Format the State
-        action_count_list = [(element, count) for element, count in Counter(self.action_sequence).items()]
-        median_RSSI = statistics.median(self.value_sequence)
-
-        self.target_sequence.clear()
-        self.target_sequence.extend([self.target_value] * len(self.value_sequence))
-
-        return np.array([self.action_sequence, self.value_sequence, self.target_sequence]), reward, done, {}
-        # return np.array([action_count_list, median_RSSI]), reward, done, {}
-
-    def reset(self):
-        self.current_value = self.prev_value
-        self.action_sequence.clear()
-        self.value_sequence.clear()
-        self.action_sequence.append(HOLD)
-        self.value_sequence.append(self.current_value)
-        return np.array([self.action_sequence, self.value_sequence])
-
-    def render(self, mode='human'):
-        print(f'Target Value: {self.target_value}, Current Value: {self.current_value}, Actions: {list(self.action_sequence)}, Values: {list(self.value_sequence)}')
-
-class QLearningAgent:
-    def __init__(self, action_space, alpha=0.5, gamma=0.35, epsilon=0.7):
-        self.action_space = action_space
-        self.alpha = alpha # learning rate, the larger the alpha, the more the agent will consider the most recent information
-        self.gamma = gamma # self.gamma is close to zero, the agent will tend to consider only immediate rewards
-        self.epsilon = epsilon # exploration rate, the larger the epsilon, the more the agent will explore
-        self.last_reward = 100
-
-        # Assume that the state space size is known and is small enough for a tabular representation.
-        # You'll have to replace this with a function approximator (e.g., a neural network) if not.
-        self.Q = {}
-
-    def get_action(self, state):
-        state = str(state.tolist())  # Convert state to string to use as dictionary key
-
-        # Initialize Q-values to 0 if state is new
-        if state not in self.Q:
-            self.Q[state] = np.zeros(self.action_space.n)
-
-        # if the last reward is not too bad, then hold and decrease the curiosity
-        if self.last_reward > -1 and self.last_reward < 1:
-            self.epsilon = 0.3
-            return HOLD
-        self.epsilon = 0.7
-        # Epsilon-greedy action selection
-        if np.random.uniform(0, 1) < self.epsilon:
-            return self.action_space.sample()  # Exploration
-        else:
-            return np.argmax(self.Q[state])  # Exploitation
-
-    def learn(self, state, action, reward, next_state, done):
-        self.last_reward = reward
-
-        state = str(state.tolist())  # Convert state to string to use as dictionary key
-        next_state = str(next_state.tolist())  # Convert next_state to string to use as dictionary key
-
-        # Initialize Q-values to 0 if states are new
-        if state not in self.Q:
-            self.Q[state] = np.zeros(self.action_space.n)
-        if next_state not in self.Q:
-            self.Q[next_state] = np.zeros(self.action_space.n)
-
-        # Q-Learning update
-        target = reward + self.gamma * np.max(self.Q[next_state]) if not done else reward
-        self.Q[state][action] = (1 - self.alpha) * self.Q[state][action] + self.alpha * target
-   
-
-
-
+# Set the signal handler for SIGINT
+signal.signal(signal.SIGINT, signal_handler)
 
 '''
 Comunication to patch control system
@@ -177,23 +110,35 @@ user_inputs = "start"
 print(f'Sending message: {user_inputs} to {addr}')
 sock.sendto(user_inputs.encode(), addr)
 test = 1
+pre_train = 1
+pre_train_num = 20
+pre_train_cur = 0
+pre_train_action = rl.HOLD
 tHighest = -100
 tLowest = 100
 test_blow_flag = 0
 action = -1
 pre_action = -1
 data_id_buff = ""
-input_message = input("Enter anything to start the strength test or enter NO to start without strength test: ")
+input_message = input("Enter anything to start the strength test or enter N to start without strength test: ")
+if input_message == "N":
+    test = 0
 if input_message == "NO":
     test = 0
+    pre_train = 0
 test_start = time.time()
 rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 # Instantiate the environment and the agent
 # Assume the Target RSSI never change
-env = MyEnvironment(target_value=-33, initial_value=rssi)
-agent = QLearningAgent(env.action_space)
+env = rl.MyEnvironment(target_value=-33, initial_value=rssi)
+input_dim = env.max_length * 3
+output_dim = env.num_actions  # Number of actions
+agent = rl.PolicyGradientAgent(input_dim, output_dim)
 done = False
 state = env.reset()
+episode = 0
+total_rewards = []
+losses = []
 while True: 
     # Determine the mode
     if test == 1 and time.time() - test_start > 20: # 20 sec test for the range of patch operation
@@ -226,6 +171,26 @@ while True:
             tHighest = rssi
         if rssi < tLowest:
             tLowest = rssi
+    elif pre_train == 1:
+        if pre_train_cur < pre_train_num/2:
+            rev_message = pm.serial_send(dev, "BLOW")
+            env.step(pre_train_action, rssi)
+            pre_train_action = rl.BLOW
+        elif pre_train_cur < pre_train_num/2 + 3:
+            rev_message = pm.serial_send(dev, "HOLD")
+            env.step(pre_train_action, rssi)
+            pre_train_action = rl.HOLD
+        else:
+            rev_message = pm.serial_send(dev, "RELEASE")
+            env.step(pre_train_action, rssi)
+            pre_train_action = rl.RELEASE
+
+        pre_train_cur += 1
+        if pre_train_cur == pre_train_num:
+            pre_train = 0
+            state = env.get_state()
+        sleep(2)
+            
     else: # operating mode + RL learning mode
         # Retrieve the target RSSI
         with open("patch_target_RSSI", "r") as file:
@@ -243,16 +208,32 @@ while True:
                     env.reset()
                     env.pre_target_value = env.target_value
 
-
-            print("Target RSSI:", target)
             print("RL Target RSSI:", env.target_value)
 
-        # RL learning
+        '''
+        RL learning
+        '''
+        # new episode
+        if done:
+            total_reward, loss = agent.learn()
+            # record the total reward and loss
+            total_rewards.append(total_reward)
+            losses.append(loss)
+            # Print the results every 10 episodes
+            if episode % 1 == 0: 
+                with open('RL_trainning_daily', 'a') as file:
+                    # Append lines to the file
+                    file.write(f"Episode: {episode}, Total Reward: {total_reward}\n")
+                
+            # state = env.reset() # state need to fill with vaild 20 data to start the next episode
+            done = False
+            episode += 1
+
         if action != -1:
             # The action is performed and the new state, reward, and done flag are received
-            next_state, reward, done, _ = env.step(action)
-            # The agent learns from the experience
-            agent.learn(state, action, reward, next_state, done)
+            next_state, reward, done, _ = env.step(action, rssi)
+            # Save the reward got from env
+            agent.record_rewards(reward)
             # The new state becomes the current state for the next iteration
             state = next_state
 
@@ -261,9 +242,9 @@ while True:
 
         # Move the patch
         if(action != pre_action):
-            if action == RELEASE:
+            if action == rl.RELEASE:
                 pm.serial_send(dev, "RELEASE")
-            elif action == BLOW:
+            elif action == rl.BLOW:
                 pm.serial_send(dev, "BLOW")
             else:
                 pm.serial_send(dev, "HOLD")
@@ -278,7 +259,7 @@ while True:
         if action == 2:
             print("RELEASE")
         
-        sleep(1) # frequency
+        sleep(2) # frequency
 
 
 

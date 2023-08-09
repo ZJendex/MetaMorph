@@ -41,7 +41,7 @@ def serial_send(dev, message):
     return "no receiving check"
 
 def get_rssi_from_wifi_board(sock, addr, data_id_buff):
-    sock.settimeout(2) # Set timeout to not let recvfrom blocking code
+    sock.settimeout(1) # Set timeout to not let recvfrom blocking code
     user_inputs = "record"
     print(f'Sending message: {user_inputs} to {addr}')
     sock.sendto(user_inputs.encode(), addr)
