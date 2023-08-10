@@ -155,6 +155,7 @@ while True:
         target = input("Please enter the target RSSI. (To be Notice, the further target change please change the file patch_target_RSSI directly. To do the re-test, please rewrite 999 in the file patch_target_RSSI): ")
         with open("patch_target_RSSI", "w") as file:
             file.write(target)
+            env.target_value = int(target)
     # Get a RSSI avg Data from arduino wifi board
     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
     if test == 1:
@@ -189,7 +190,6 @@ while True:
         if pre_train_cur == pre_train_num:
             pre_train = 0
             state = env.get_state()
-        sleep(2)
             
     else: # operating mode + RL learning mode
         # Retrieve the target RSSI
@@ -259,7 +259,7 @@ while True:
         if action == 2:
             print("RELEASE")
         
-        sleep(2) # frequency
+    sleep(2) # frequency
 
 
 
