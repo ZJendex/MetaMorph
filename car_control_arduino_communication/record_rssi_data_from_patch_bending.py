@@ -32,7 +32,7 @@ while data.decode() != startCode:
     continue
 
 while True:
-    user_inputs = input("Please enter a command: ")
+    user_inputs = input("Please enter a command: ") # command: start
 
     print(f'Sending message: {user_inputs} to {addr}')
     sock.sendto(user_inputs.encode(), addr)

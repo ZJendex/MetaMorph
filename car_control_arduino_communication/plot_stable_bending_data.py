@@ -6,14 +6,15 @@ from scipy.interpolate import make_interp_spline, BSpline
 
 
 
-data_directory = "../data/Test"  # Replace with the directory path
-plot_directory = "../plot/Test"
+data_directory = "../data/Aug11"  # Replace with the directory path
+plot_directory = "../plot/Aug11"
+fileName_startwite = "rssi_data_delay"
+smooth_rate = 50
 # Get all file names in the directory
 file_names = [file for file in os.listdir(data_directory) if file.endswith(".txt")]
-print(file_names)
 
 for filename in file_names:
-    if filename.startswith("rssi_data_car_bending"):
+    if filename.startswith(fileName_startwite):
         data_file = os.path.join(data_directory, filename)
         print(data_file)
 
@@ -32,10 +33,10 @@ for filename in file_names:
         print(rssi_data_points)
         print("The duration is " + str(time) + "s")
         # Smooth the data
-        avg = 20
+        avg = smooth_rate
         rssi_smooth_data_points = []
-        for i in range(avg, len(rssi_data_points)):
-            rssi_smooth_data_points.append(np.mean(rssi_data_points[i-avg:i]))
+        for i in range(len(rssi_data_points) - avg):
+            rssi_smooth_data_points.append(np.mean(rssi_data_points[i:i+avg]))
 
         times = np.linspace(0, time, len(rssi_smooth_data_points))
 
@@ -43,6 +44,9 @@ for filename in file_names:
         # plt.plot(times, rssi_data_points)
         plt.plot(times, rssi_smooth_data_points)
 
+        # Set y limits
+        plt.ylim(-70, -30)
+        # plt.xlim(0, 2)
         # Set labels and title
         plt.xlabel('Time (s)')
         plt.ylabel('RSSI')
@@ -57,3 +61,5 @@ for filename in file_names:
         plt.savefig(path, dpi=300)
         plt.close()
         
+print(file_names)
+print(len(file_names))
