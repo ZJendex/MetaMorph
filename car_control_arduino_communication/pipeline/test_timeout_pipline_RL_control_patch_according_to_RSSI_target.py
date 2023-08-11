@@ -6,7 +6,7 @@ from datetime import datetime
 import serial
 from time import sleep
 import time
-import pipline_methods as pm
+import test_pipline_methods as pm
 import gym
 from collections import deque, Counter
 from gym import spaces
@@ -71,10 +71,6 @@ signal.signal(signal.SIGINT, signal_handler)
 '''
 Comunication to patch control system
 '''
-# 0:BLOW 1:HOLD 2:RELEASE
-dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-print("Establishing connection...")
-sleep(0.5)
 
 
 '''
@@ -131,7 +127,7 @@ rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 # Instantiate the environment and the agent
 # Assume the Target RSSI never change
 env = rl.MyEnvironment(target_value=-33, initial_value=rssi)
-input_dim = env.max_length
+input_dim = env.max_length * 2
 output_dim = env.num_actions  # Number of actions
 agent = rl.PolicyGradientAgent(input_dim, output_dim)
 done = False
@@ -146,23 +142,16 @@ while True:
         test = 0
         # dev.write(b'3') # stop patch
         print("start sending the stop signal")
-        pm.serial_send(dev, "STOP")
+        # pm.serial_send(dev, "STOP")
         
         with open("patch_ability_range", "w") as file:
             file.write(f"upper bound: {tHighest}\n")
             file.write(f"lower bound: {tLowest}\n")
         print("strength test finished")
         target = input("Please enter the target RSSI. (To be Notice, the further target change please change the file patch_target_RSSI directly. To do the re-test, please rewrite 999 in the file patch_target_RSSI): ")
-        if target == 999:
-            test = 1
-            test_start = time.time()
-            tHighest = -100
-            tLowest = 100
-            test_blow_flag = 0
-            continue
         with open("patch_target_RSSI", "w") as file:
             file.write(target)
-            env.target_value = int(target)
+            env.target_value = target
     # Get a RSSI avg Data from arduino wifi board
     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
     if test == 1:
@@ -173,7 +162,7 @@ while True:
     # loop, test mode & operating mode
     if test == 1: # test mode
         if test_blow_flag == 0:
-            rev_message = pm.serial_send(dev, "BLOW")
+            # rev_message = pm.serial_send(dev, "BLOW")
             test_blow_flag = 1
         if rssi > tHighest:
             tHighest = rssi
@@ -181,31 +170,40 @@ while True:
             tLowest = rssi
     elif pre_train == 1:
         if pre_train_cur < pre_train_num/2:
-            rev_message = pm.serial_send(dev, "BLOW")
-            env.step(pre_train_action, rssi)
+            # rev_message = pm.serial_send(dev, "BLOW")
+            # env.step(pre_train_action, rssi)
             pre_train_action = rl.BLOW
         elif pre_train_cur < pre_train_num/2 + 3:
-            rev_message = pm.serial_send(dev, "HOLD")
-            env.step(pre_train_action, rssi)
+            # rev_message = pm.serial_send(dev, "HOLD")
+            # env.step(pre_train_action, rssi)
             pre_train_action = rl.HOLD
         else:
-            rev_message = pm.serial_send(dev, "RELEASE")
-            env.step(pre_train_action, rssi)
+            # rev_message = pm.serial_send(dev, "RELEASE")
+            # env.step(pre_train_action, rssi)
             pre_train_action = rl.RELEASE
 
         pre_train_cur += 1
         if pre_train_cur == pre_train_num:
             pre_train = 0
             state = env.get_state()
+        
             
     else: # operating mode + RL learning mode
         # Retrieve the target RSSI
         with open("patch_target_RSSI", "r") as file:
             target = int(file.readline().strip())
-            env.target_value = target
-            if env.target_value != env.pre_target_value: # target changed, reset the environment
-                env.reset()
-                env.pre_target_value = env.target_value
+            if target == 999:
+                test = 1
+                test_start = time.time()
+                tHighest = -100
+                tLowest = 100
+                test_blow_flag = 0
+                continue
+            else:
+                env.target_value = target
+                if env.target_value != env.pre_target_value: # target changed, reset the environment
+                    env.reset()
+                    env.pre_target_value = env.target_value
 
             print("RL Target RSSI:", env.target_value)
 
@@ -228,27 +226,27 @@ while True:
             done = False
             episode += 1
 
-        if action != -1:
-            # The action is performed and the new state, reward, and done flag are received
-            next_state, reward, done, _ = env.step(action, rssi)
-            # Save the reward got from env
-            agent.record_rewards(reward)
-            # The new state becomes the current state for the next iteration
-            state = next_state
+        # if action != -1:
+        #     # The action is performed and the new state, reward, and done flag are received
+        #     next_state, reward, done, _ = env.step(action, rssi)
+        #     # Save the reward got from env
+        #     agent.record_rewards(reward)
+        #     # The new state becomes the current state for the next iteration
+        #     state = next_state
 
-        # The agent chooses an action
-        action = agent.get_action(state)
+        # # The agent chooses an action
+        # action = agent.get_action(state)
 
-        # Move the patch
-        if(action != pre_action):
-            if action == rl.RELEASE:
-                pm.serial_send(dev, "RELEASE")
-            elif action == rl.BLOW:
-                pm.serial_send(dev, "BLOW")
-            else:
-                pm.serial_send(dev, "HOLD")
+        # # Move the patch
+        # if(action != pre_action):
+        #     if action == rl.RELEASE:
+        #         pm.serial_send(dev, "RELEASE")
+        #     elif action == rl.BLOW:
+        #         pm.serial_send(dev, "BLOW")
+        #     else:
+        #         pm.serial_send(dev, "HOLD")
 
-            pre_action = action
+        #     pre_action = action
         
         # print the action
         if action == 0:
@@ -258,7 +256,7 @@ while True:
         if action == 2:
             print("RELEASE")
         
-    sleep(1) # frequency
+    sleep(2) # frequency
 
 
 

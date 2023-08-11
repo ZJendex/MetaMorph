@@ -12,13 +12,60 @@ from collections import deque, Counter
 from gym import spaces
 import numpy as np
 import statistics
+import signal
+import pipline_RL_env_agent as rl
+import matplotlib.pyplot as plt
+import math
+'''
+on policy or off
+model free or not 
+cannot predict future
+the future env is a black box
+therefore q learning
 
+delay, small amount of data 
+therefore q learning
+
+dqn absence greedy 
+train inde signal strendgth data
+'''
+
+total_rewards = []
+def signal_handler(sig, frame):
+    # This function will be called when the SIGINT signal is caught (Ctrl+C pressed)
+    print("SIGINT signal caught. Performing cleanup...")
+    # Perform the action you want to do when the signal is caught
+    # For example, save data, close files, release resources, etc.
+    # ...
+    # # Plotting the loss
+    # plt.figure(figsize=(10,5))
+    # plt.plot(losses)
+    # plt.title("Loss over Episodes")
+    # plt.xlabel("Episode")
+    # plt.ylabel("Loss")
+    # plt.grid(True)
+    # plt.show()
+
+    # # Plotting the rewards (which is a proxy for accuracy/performance in RL)
+    plt.figure(figsize=(10,5))
+    plt.plot(total_rewards)
+    plt.title("Total Rewards over Episodes")
+    plt.xlabel("Episode")
+    plt.ylabel("Total Rewards")
+    plt.grid(True)
+    plt.savefig("RL_trainning_Q.png")
+    # Exit the program gracefully
+    exit(0)
+
+# Set the signal handler for SIGINT
+signal.signal(signal.SIGINT, signal_handler)
 
 # Define the actions
 BLOW = 0
 HOLD = 1
 RELEASE = 2
-
+# Define the max reward
+max_reward = 10
 
 
 class MyEnvironment(gym.Env):
@@ -51,7 +98,28 @@ class MyEnvironment(gym.Env):
 
         # Calculate the reward
         # reward = (self.target_value - self.prev_value) - (self.target_value - self.current_value)
-        reward = abs(self.target_value - self.current_value)
+        # reward = abs(self.target_value - self.current_value)
+        cur_reward = abs(self.target_value - self.current_value)
+        pre_reward = abs(self.target_value - self.prev_value)
+
+        # the improvement compare to previous step
+        improvement = cur_reward - pre_reward
+        # the reward close to target
+        # make the reward closer to target RSSI more sensitive
+        beta = 1.077 # the closer to 1.1
+        alpha = 30 # the larger to 100
+        a = self.target_value - math.log(max_reward/alpha, beta)
+        b = self.target_value + math.log(max_reward/alpha, beta)
+        rewardBelowTarget = pow(beta, self.current_value - a) * alpha
+        rewardAboveTarget = pow(beta, b - self.current_value) * alpha
+        if self.current_value < self.target_value:
+            dis_reward = rewardBelowTarget
+        else:
+            dis_reward = rewardAboveTarget
+
+        reward = dis_reward + improvement
+        print(f"step rewards is {reward}")
+        total_rewards.append(reward)
 
         # Update action and value sequences
         self.action_sequence.append(action)
@@ -177,6 +245,10 @@ user_inputs = "start"
 print(f'Sending message: {user_inputs} to {addr}')
 sock.sendto(user_inputs.encode(), addr)
 test = 1
+pre_train = 1
+pre_train_num = 20
+pre_train_cur = 0
+pre_train_action = rl.HOLD
 tHighest = -100
 tLowest = 100
 test_blow_flag = 0
@@ -208,12 +280,21 @@ while True:
             file.write(f"lower bound: {tLowest}\n")
         print("strength test finished")
         target = input("Please enter the target RSSI. (To be Notice, the further target change please change the file patch_target_RSSI directly. To do the re-test, please rewrite 999 in the file patch_target_RSSI): ")
+        if target == 999:
+            test = 1
+            test_start = time.time()
+            tHighest = -100
+            tLowest = 100
+            test_blow_flag = 0
+            continue
         with open("patch_target_RSSI", "w") as file:
             file.write(target)
     # Get a RSSI avg Data from arduino wifi board
     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
     if test == 1:
         print('Test RSSI:', rssi)
+    elif pre_train == 1:
+        print('Pre_train RSSI:', rssi)
     else:
         print('Current RSSI:', rssi)
     
@@ -226,6 +307,32 @@ while True:
             tHighest = rssi
         if rssi < tLowest:
             tLowest = rssi
+    elif pre_train == 1:
+        if pre_train_cur < pre_train_num/2:
+            rev_message = pm.serial_send(dev, "BLOW")
+            # force agent to choose action and learn
+            next_state, reward, done, _ = env.step(action)
+            agent.learn(state, action, reward, next_state, done)
+            state = next_state
+            pre_train_action = BLOW
+        elif pre_train_cur < pre_train_num/2 + 3:
+            rev_message = pm.serial_send(dev, "HOLD")
+            # force agent to choose action and learn
+            next_state, reward, done, _ = env.step(action)
+            agent.learn(state, action, reward, next_state, done)
+            state = next_state
+            pre_train_action = HOLD
+        else:
+            rev_message = pm.serial_send(dev, "RELEASE")
+            # force agent to choose action and learn
+            next_state, reward, done, _ = env.step(action)
+            agent.learn(state, action, reward, next_state, done)
+            state = next_state
+            pre_train_action = RELEASE
+
+        pre_train_cur += 1
+        if pre_train_cur == pre_train_num:
+            pre_train = 0
     else: # operating mode + RL learning mode
         # Retrieve the target RSSI
         with open("patch_target_RSSI", "r") as file:
@@ -243,8 +350,6 @@ while True:
                     env.reset()
                     env.pre_target_value = env.target_value
 
-
-            print("Target RSSI:", target)
             print("RL Target RSSI:", env.target_value)
 
         # RL learning
@@ -278,7 +383,7 @@ while True:
         if action == 2:
             print("RELEASE")
         
-        sleep(1) # frequency
+    sleep(1) # frequency
 
 
 

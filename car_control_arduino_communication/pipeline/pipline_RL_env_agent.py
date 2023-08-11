@@ -19,6 +19,17 @@ import torch.optim as optim
 import signal
 import math
 
+def normal_entropy(std):
+    var = std.pow(2)
+    entropy = 0.5 + 0.5 * torch.log(2 * var * math.pi)
+    return entropy.sum(1, keepdim=True)
+
+
+def normal_log_density(x, mean, log_std, std):
+    var = std.pow(2)
+    log_density = -(x - mean).pow(2) / (2 * var) - 0.5 * math.log(2 * math.pi) - log_std
+    return log_density.sum(1, keepdim=True)
+
 # Define the max reward
 max_reward = 100
 # Define the actions
@@ -27,8 +38,8 @@ HOLD = 1
 RELEASE = 2
 num_actions = 3
 # Configuration
-max_length = 20 # the memory of agent
-episode_size = 100 # learning frequency
+max_length = 10 # the memory of agent
+episode_size = 20 # learning frequency
 
 class MyEnvironment(gym.Env):
     def __init__(self, target_value, initial_value):
@@ -69,26 +80,26 @@ class MyEnvironment(gym.Env):
         # Calculate the reward
         # reward = 100 - abs(self.target_value - self.current_value)
 
-        # make the reward closer to target RSSI more sensitive
-        beta = 1.077 # the closer to 1.1
-        alpha = 30 # the larger to 100
-        a = self.target_value - math.log(max_reward/alpha, beta)
-        b = self.target_value + math.log(max_reward/alpha, beta)
-        rewardBelowTarget = pow(beta, self.current_value - a) * alpha
-        rewardAboveTarget = pow(beta, b - self.current_value) * alpha
-        if self.current_value < self.target_value:
-            cur_reward = rewardBelowTarget
-        else:
-            cur_reward = rewardAboveTarget
+        # # make the reward closer to target RSSI more sensitive
+        # beta = 1.077 # the closer to 1.1
+        # alpha = 30 # the larger to 100
+        # a = self.target_value - math.log(max_reward/alpha, beta)
+        # b = self.target_value + math.log(max_reward/alpha, beta)
+        # rewardBelowTarget = pow(beta, self.current_value - a) * alpha
+        # rewardAboveTarget = pow(beta, b - self.current_value) * alpha
+        # if self.current_value < self.target_value:
+        #     cur_reward = rewardBelowTarget
+        # else:
+        #     cur_reward = rewardAboveTarget
         
-        # the system shouldn't get reward if it's as same close to target as before
-        # therefore we need to substruct the cur to pre
-        rewardBelowTarget = pow(beta, self.prev_value - a) * alpha
-        rewardAboveTarget = pow(beta, b - self.prev_value) * alpha
-        if self.prev_value < self.target_value:
-            pre_reward = rewardBelowTarget
-        else:
-            pre_reward = rewardAboveTarget
+        # # the system shouldn't get reward if it's as same close to target as before
+        # # therefore we need to substruct the cur to pre
+        # rewardBelowTarget = pow(beta, self.prev_value - a) * alpha
+        # rewardAboveTarget = pow(beta, b - self.prev_value) * alpha
+        # if self.prev_value < self.target_value:
+        #     pre_reward = rewardBelowTarget
+        # else:
+        #     pre_reward = rewardAboveTarget
 
         cur_reward = abs(self.target_value - self.current_value)
         pre_reward = abs(self.target_value - self.prev_value)
@@ -112,17 +123,17 @@ class MyEnvironment(gym.Env):
         self.action_sequence.append(action)
         self.value_sequence.append(self.current_value)
 
-        return np.array([self.action_sequence, self.value_sequence]), reward, done, {}
+        return np.array(self.action_sequence), reward, done, {}
         # return np.array([action_count_list, median_RSSI]), reward, done, {}
 
     def reset(self):
         self.current_value = self.prev_value
         self.action_sequence.append(HOLD)
         self.value_sequence.append(self.current_value)
-        return np.array([self.action_sequence, self.value_sequence])
+        return np.array(self.action_sequence)
 
     def get_state(self):
-        return np.array([self.action_sequence, self.value_sequence])
+        return np.array(self.action_sequence)
 
     def render(self, mode='human'):
         print(f'Target Value: {self.target_value}, Current Value: {self.current_value}, Actions: {list(self.action_sequence)}, Values: {list(self.value_sequence)}')
@@ -132,6 +143,9 @@ class PolicyNetwork(nn.Module):
         super(PolicyNetwork, self).__init__()
         self.fc1 = nn.Linear(input_dim, 128) # Fully connected layer with 128 units
         self.fc2 = nn.Linear(128, output_dim)
+        # weight bias initialization
+        self.fc2.weight.data.normal_(0, 0.01)
+        self.fc2.bias.data.zero_()
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
