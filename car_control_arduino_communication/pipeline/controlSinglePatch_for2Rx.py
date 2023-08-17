@@ -56,6 +56,17 @@ Action1: 0, 1, 2 where 0 is blow, 1 is hold, 2 is release
 Action2: 0, 1, 2 where 0 is blow, 1 is hold, 2 is release
 '''
 while True:
-    command = input("Please input [0,1,2][0,1,2] to control the patch:")
-    action = (int(command[0]), int(command[1]))
+    command = input("Enter to start:")
+    action = (2, 1)
     pm.serial_send_syn(dev, action)
+    sleep(5)
+    action = (0, 1)
+    pm.serial_send_syn(dev, action)
+    sleep(25)
+    action = (1, 1)
+    pm.serial_send_syn(dev, action)
+    sleep(5)
+    action = (2, 1)
+    pm.serial_send_syn(dev, action)
+
+    
