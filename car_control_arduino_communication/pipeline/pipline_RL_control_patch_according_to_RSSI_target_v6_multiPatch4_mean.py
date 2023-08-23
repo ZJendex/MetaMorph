@@ -1,3 +1,4 @@
+
 import socket
 import readline
 import time
@@ -79,6 +80,9 @@ data_id_buff = ""
 # rewards
 beta = 1.2 # the closer to 1.1
 al = 100 # the larger to 100
+
+# PatchNumber
+patchNumber = 2
 
 def signal_handler(sig, frame):
     global total_rewards, accuracy, RSSI_ALL, exploIR

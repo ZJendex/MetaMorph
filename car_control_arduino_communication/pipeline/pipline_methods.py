@@ -36,6 +36,10 @@ def serial_send_syn(dev, action):
     print(f"patch2 action is {action2str[action[1]]}")
     sleep(0.5)
 
+# def get_rssi_from_usrp_via_serial(dev):
+#     # To do
+    
+
 '''
 message
 BLOW   0
@@ -84,6 +88,7 @@ def get_rssi_from_wifi_board(sock, addr, data_id_buff):
     
     sock.sendto(user_inputs.encode(), addr)
     print("sent rssi request")
+    sleep(0.1)
     while True: # leave until received the RSSI avg Data
         try:
             data, addr = sock.recvfrom(1024)
