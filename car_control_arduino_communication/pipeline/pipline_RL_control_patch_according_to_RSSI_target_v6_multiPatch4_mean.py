@@ -1,4 +1,3 @@
-
 import socket
 import readline
 import time
@@ -44,6 +43,12 @@ RELEASE = 2
 BLOW2 = 0
 HOLD2 = 1
 RELEASE2 = 2
+BLOW3 = 0
+HOLD3 = 1
+RELEASE3 = 2
+BLOW4 = 0
+HOLD4 = 1
+RELEASE4 = 2
 # Configuration
 # Env
 max_reward = 10
@@ -73,16 +78,13 @@ target_try_cnt_max = 20
 RSSI_reset = []
 
 # other init
-action = (-1, -1)
-pre_action = (-1, -1)
+action = (-1, -1, -1, -1)
+pre_action = (-1, -1, -1, -1)
 data_id_buff = ""
 
 # rewards
 beta = 1.2 # the closer to 1.1
 al = 100 # the larger to 100
-
-# PatchNumber
-patchNumber = 2
 
 def signal_handler(sig, frame):
     global total_rewards, accuracy, RSSI_ALL, exploIR
@@ -157,8 +159,8 @@ class MyEnvironment(gym.Env):
     def __init__(self, target_value, initial_value, max_length=max_length):
         super(MyEnvironment, self).__init__()
 
-        self.action_space = spaces.Tuple((spaces.Discrete(3), spaces.Discrete(3)))  # BLOW, HOLD, RELEASE ; BLOW2, HOLD2, RELEASE2
-        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(2, max_length))
+        self.action_space = spaces.Tuple((spaces.Discrete(3), spaces.Discrete(3), spaces.Discrete(3), spaces.Discrete(3)))  # BLOW, HOLD, RELEASE ; BLOW2, HOLD2, RELEASE2
+        self.observation_space = spaces.Box(low=0, high=np.inf, shape=(4, max_length))
 
         # Initial setup
         self.target_value = target_value
@@ -170,6 +172,8 @@ class MyEnvironment(gym.Env):
         # In the future, we can use the detailed floor plan image + air prerssure of each patch to represent the state
         self.action_sequence1 = deque(maxlen=max_length)
         self.action_sequence2 = deque(maxlen=max_length)
+        self.action_sequence3 = deque(maxlen=max_length)
+        self.action_sequence4 = deque(maxlen=max_length)
         self.value_sequence = deque(maxlen=max_length)
         self.target_sequence = deque(maxlen=max_length)
         # self.action_sequence1.append(HOLD)
@@ -226,28 +230,29 @@ class MyEnvironment(gym.Env):
         # Update action and value sequences
         self.action_sequence1.append(action[0])
         self.action_sequence2.append(action[1])
+        self.action_sequence3.append(action[2])
+        self.action_sequence4.append(action[3])
         # floor mean on state represent
         self.value_sequence.append(int(self.current_value))
         self.target_sequence.clear()
         self.target_sequence.extend([self.target_value] * len(self.value_sequence))
 
-        return np.array([self.action_sequence1, self.action_sequence2, self.value_sequence, self.target_sequence]), reward, done, {}
+        return np.array([self.action_sequence1, self.action_sequence2, self.action_sequence3, self.action_sequence4, self.value_sequence, self.target_sequence]), reward, done, {}
         # return np.array([action_count_list, median_RSSI]), reward, done, {}
 
     def reset(self):
         self.current_value = self.prev_value
         self.action_sequence1.clear()
         self.action_sequence2.clear()
+        self.action_sequence3.clear()
+        self.action_sequence4.clear()
         self.value_sequence.clear()
         self.target_sequence.clear()
         # self.action_sequence1.append(HOLD)
         # self.action_sequence2.append(HOLD2)
         # self.value_sequence.append(self.current_value)
         self.target_sequence.extend([self.target_value] * len(self.value_sequence))
-        return np.array([self.action_sequence1, self.action_sequence2, self.value_sequence, self.target_sequence])
-
-    def render(self, mode='human'):
-        print(f'Target Value: {self.target_value}, Current Value: {self.current_value}, Actions: {list(self.action_sequence)}, Values: {list(self.value_sequence)}')
+        return np.array([self.action_sequence1, self.action_sequence2, self.action_sequence3, self.action_sequence4, self.value_sequence, self.target_sequence])
 
 class QLearningAgent:
     # single patch -- alpha=0.5, gamma=0.35, epsilon=0.7
@@ -258,7 +263,7 @@ class QLearningAgent:
         self.epsilon = epsilon # exploration rate, the larger the epsilon, the more the agent will explore
         self.last_reward = -1
         self.ll_reward = -2
-        self.last_action = (-1, -1)
+        self.last_action = (-1, -1, -1, -1)
         self.same_action_cnt = 0
         self.rssi = 0
         self.target_rssi = 0
@@ -273,7 +278,7 @@ class QLearningAgent:
 
         # Initialize Q-values to 0 if state is new
         if state not in self.Q:
-            self.Q[state] = np.zeros((self.action_space[0].n, self.action_space[1].n))
+            self.Q[state] = np.zeros((self.action_space[0].n, self.action_space[1].n, self.action_space[2].n, self.action_space[3].n))
 
         # # if the current signal is good enough, then hold
         # if self.rssi >= -40:
@@ -289,9 +294,9 @@ class QLearningAgent:
         #     else:
         #         self.epsilon = 0.5
         if goal == 1 and self.rssi >= self.target_rssi:
-            return (HOLD, HOLD2), exploi
+            return (HOLD, HOLD2, HOLD3, HOLD4), exploi
         if goal != 1 and self.rssi <= self.target_rssi:
-            return (HOLD, HOLD2), exploi
+            return (HOLD, HOLD2, HOL3, HOLD4), exploi
         else:
             with open("patch_epsilon", "r") as file:
                 self.epsilon = float(file.readline().strip())
@@ -311,16 +316,18 @@ class QLearningAgent:
             return flat_index, exploi
         else:
             flat_index = np.argmax(self.Q[state]) # Exploitation
-            # print("do what I learned!!!")
-            # print(self.Q[state])
-            # print(f"EXPLOI flatten index is {flat_index}")
-            action_1 = flat_index // self.action_space[1].n
-            action_2 = flat_index % self.action_space[1].n
-            action = (action_1, action_2)
+            action_1 = flat_index // (self.action_space[1].n * self.action_space[2].n * self.action_space[3].n)
+            remaining_index = flat_index % (self.action_space[1].n * self.action_space[2].n * self.action_space[3].n)
+            action_2 = remaining_index // (self.action_space[2].n * self.action_space[3].n)
+            remaining_index = remaining_index % (self.action_space[2].n * self.action_space[3].n)
+            action_3 = remaining_index // self.action_space[3].n
+            action_4 = remaining_index % self.action_space[3].n
+
+            action = (action_1, action_2, action_3, action_4)
             # no learn, no move
             if self.Q[state][action] == 0: # if learned nothing
                 print("EXPLOI nothing, HOLD")
-                return (HOLD, HOLD2), exploi
+                return (HOLD, HOLD2, HOL3, HOLD4), exploi
             print("EXPLOI")
             exploi = 1
             return action, exploi
@@ -328,7 +335,7 @@ class QLearningAgent:
         
 
     def learn(self, state, action, reward, next_state, done):
-        if self.last_action[0] == action[0] and self.last_action[1] == action[1]:
+        if self.last_action[0] == action[0] and self.last_action[1] == action[1] and self.last_action[2] == action[2] and self.last_action[3] == action[3]:
             self.same_action_cnt += 1
         else:
             self.same_action_cnt = 0
@@ -341,9 +348,9 @@ class QLearningAgent:
 
         # Initialize Q-values to 0 if states are new
         if state not in self.Q:
-            self.Q[state] = np.zeros((self.action_space[0].n, self.action_space[1].n))
+            self.Q[state] = np.zeros((self.action_space[0].n, self.action_space[1].n, self.action_space[2].n, self.action_space[3].n))
         if next_state not in self.Q:
-            self.Q[next_state] = np.zeros((self.action_space[0].n, self.action_space[1].n))
+            self.Q[next_state] = np.zeros((self.action_space[0].n, self.action_space[1].n, self.action_space[2].n, self.action_space[3].n))
 
         # Q-Learning update
         new_value = reward + self.gamma * np.max(self.Q[next_state]) if not done else reward
@@ -360,7 +367,15 @@ Comunication to patch control system
 '''
 # 0:BLOW 1:HOLD 2:RELEASE
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-dev = serial.Serial("/dev/cu.usbmodem11301", baudrate=9600)
+devHigh = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
+devLow = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
+
+def send_syn(action, devLow=devLow, devHigh=devHigh):
+    actionLow = (action[0], action[1])
+    actionHigh = (action[2], action[3])
+    pm.serial_send_syn(devLow, actionLow)
+    pm.serial_send_syn(devHigh, actionHigh)
+
 
 print("Establishing connection...")
 sleep(0.5)
@@ -410,31 +425,6 @@ agent = QLearningAgent(env.action_space)
 done = False
 state = env.reset()
 while True: 
-    # Determine the mode
-    if test == 1 and time.time() - test_start > 20: # 20 sec test for the range of patch operation
-        sleep(1)
-        test = 0
-        # dev.write(b'3') # stop patch
-        print("reset the patch position...")
-        pm.serial_send_syn(dev, (RELEASE, RELEASE2))
-        sleep(8)
-        print("start sending the stop signal")
-        pm.serial_send(dev, "STOP")
-        
-        with open("patch_ability_range", "w") as file:
-            file.write(f"upper bound: {tHighest}\n")
-            file.write(f"lower bound: {tLowest}\n")
-        print("strength test finished")
-        target = input("Please enter the target RSSI. (To be Notice, the further target change please change the file patch_target_RSSI directly. To do the re-test, please rewrite 999 in the file patch_target_RSSI): ")
-        if target == 999:
-            test = 1
-            test_start = time.time()
-            tHighest = -100
-            tLowest = 100
-            test_blow_flag = 0
-            continue
-        with open("patch_target_RSSI", "w") as file:
-            file.write(target)
     # Get a RSSI avg Data from arduino wifi board
     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
     agent.rssi = rssi
@@ -445,35 +435,26 @@ while True:
     else:
         print('Current RSSI:', rssi)
     
-    # loop, test mode & operating mode
-    if test == 1: # test mode
-        if test_blow_flag == 0:
-            rev_message = pm.serial_send_syn(dev, (BLOW, BLOW2))
-            test_blow_flag = 1
-        if rssi > tHighest:
-            tHighest = rssi
-        if rssi < tLowest:
-            tLowest = rssi
     elif pre_train == 1:
         RSSI_reset.append(rssi)
         if pre_train_cur < pre_train_num/2 - 1:
             # force agent to choose action and learn
-            action = (BLOW, BLOW2)
-            rev_message = pm.serial_send_syn(dev, action)
+            action = (BLOW, BLOW2, BLOW3, BLOW4)
+            rev_message = send_syn(action)
             next_state, reward, done, _ = env.step(action, -1)
             # agent.learn(state, action, reward, next_state, done)
             state = next_state
         elif pre_train_cur < pre_train_num/2 + 1:
             # force agent to choose action and learn
-            action = (HOLD, HOLD2)
-            rev_message = pm.serial_send_syn(dev, action)
+            action = (HOLD, HOLD2, HOLD3, HOLD4)
+            rev_message = send_syn(action)
             next_state, reward, done, _ = env.step(action, -1)
             # agent.learn(state, action, reward, next_state, done)
             state = next_state
         else:
             # force agent to choose action and learn
-            action = (RELEASE, RELEASE2)
-            rev_message = pm.serial_send_syn(dev, action)
+            action = (RELEASE, RELEASE2, RELEASE3, RELEASE4)
+            rev_message = send_syn(action)
             next_state, reward, done, _ = env.step(action, -1)
             # agent.learn(state, action, reward, next_state, done)
             state = next_state
@@ -549,8 +530,8 @@ while True:
 
         # move the patch
         # print(f"action is {action}")
-        if action[0] != pre_action[0] and action[1] != pre_action[1]:
-            pm.serial_send_syn(dev, action)
+        if action[0] != pre_action[0] and action[1] != pre_action[1] and action[2] != pre_action[2] and action[3] != pre_action[3]:
+            send_syn(action)
             pre_action = action
 
         

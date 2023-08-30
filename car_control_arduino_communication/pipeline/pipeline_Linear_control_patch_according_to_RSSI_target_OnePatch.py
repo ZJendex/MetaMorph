@@ -167,7 +167,7 @@ while True:
             if command == 'q':
                 break
         patchOpt(1, mode)
-        patchOpt(2, mode)
+        # patchOpt(2, mode)
         i += 1
         
 

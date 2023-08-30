@@ -6,7 +6,7 @@ from datetime import datetime
 import serial
 from time import sleep
 import time
-import pipline_methods as pm
+import pipline_methods_linear as pm
 import gym
 from collections import deque, Counter
 from gym import spaces
@@ -27,7 +27,7 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-dev = serial.Serial("/dev/cu.usbmodem11301", baudrate=9600)
+dev = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
 print("Establishing connection...")
 sleep(0.5)
 

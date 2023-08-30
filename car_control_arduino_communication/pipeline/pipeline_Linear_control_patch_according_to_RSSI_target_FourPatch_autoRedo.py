@@ -17,6 +17,22 @@ import matplotlib.pyplot as plt
 import math
 import pickle
 
+rssi_history = []
+def signal_handler(sig, frame):
+    global rssi_history
+    total_time = abs(init_time - time.time())
+    print(f"the total time is {total_time}s")
+    print(f"rssi history is {rssi_history} in length {len(rssi_history)}")
+    rssi_history = np.array(rssi_history)
+    np.savetxt(f"../data_pipeline/rssi_history_{total_time}.npy", rssi_history)
+    
+    # Exit the program gracefully
+    exit(0)
+
+# Set the signal handler for SIGINT
+signal.signal(signal.SIGINT, signal_handler)
+
+
 # Define the action = (action1, action2)
 BLOW = 0
 HOLD = 1
@@ -26,7 +42,7 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # test length
-tl = 5
+tl = 4
 
 data_id_buff = ""
 
@@ -36,6 +52,7 @@ Comunication to patch control system
 # 0:BLOW 1:HOLD 2:RELEASE
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
 dev = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
+dev2 = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
 
 print("Establishing connection...")
 sleep(0.5)
@@ -74,12 +91,13 @@ test_start = time.time()
 rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 patch1TraverseActionSequence = [(BLOW, HOLD2)] * tl
 patch2TraverseActionSequence = [(HOLD, BLOW2)] * tl
-patch1ResetActionSequence = [(RELEASE, HOLD2)] * tl
-patch2ResetActionSequence = [(HOLD, RELEASE2)] * tl
-patchResetActionSequence = [(RELEASE, RELEASE2)] * tl
+patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-1)
+patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-1)
+patchResetActionSequence = [(RELEASE, RELEASE2)] * (tl-1)
 actionHold = (HOLD, HOLD2)
+rssi_history = []
 
-def patchOpt(patchNum, mode):
+def patchOpt(patchNum, mode, dev):
     global data_id_buff
     print(f"Optimizaing patch {patchNum}")
     if mode == 1: # h
@@ -112,6 +130,7 @@ def patchOpt(patchNum, mode):
     for action in traverseActionSeq:
         # rssi is the consequence of the pre action
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi_history.append(rssi)
         print(f"current rssi is {rssi}")
         pm.serial_send_syn(dev, action)
         if mode == 1: # h
@@ -123,22 +142,29 @@ def patchOpt(patchNum, mode):
                 tmp_rssi = rssi
                 tmp_index = index   
         index += 1
-    pm.serial_send_syn(dev, actionHold)
+    # pm.serial_send_syn(dev, actionHold)
     print(f"Get the best rssi at {tmp_rssi} with index {tmp_index}")
-    sleep(1)
+    # sleep(1)
     print("Resetting...")
     # reset
     for action in resetActionSeq:
+        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi_history.append(rssi)
         pm.serial_send_syn(dev, action)
-    pm.serial_send_syn(dev, actionHold)
+        
+    # pm.serial_send_syn(dev, actionHold)
     print("Reset Done")
-    sleep(1)
+    # sleep(1)
     print("Go the the best place")
     index = 0
     for action in traverseActionSeq:
         print(f"index is {index} where the target index is {tmp_index}")
+        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi_history.append(rssi)
         pm.serial_send_syn(dev, action)
         if index == tmp_index:
+            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+            rssi_history.append(rssi)
             pm.serial_send_syn(dev, actionHold)
             break
         index += 1
@@ -161,14 +187,47 @@ while True:
         continue
     
     i = 0
+    start_time = time.time()
+    init_time = start_time
+    total_time = 0
+    rssi_pre = 0
     while True:
-        if i % 1 == 0:
-            command = input("Enter return for next around or q to back to mode selection: ")
-            if command == 'q':
-                break
-        patchOpt(1, mode)
-        patchOpt(2, mode)
+        if i % 1 == 0 and i != 0:
+            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+            rssi_history.append(rssi)
+            print(f"INIT rssi is {rssi}")
+            sleep(1)
+            if rssi - rssi_pre >= -5: # decrease above 5db
+                rssi_pre = rssi
+                continue
+            else:
+                # reset upper
+                for action in patchResetActionSequence:
+                    rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+                    rssi_history.append(rssi)
+                    pm.serial_send_syn(dev, action)
+                # reset lower
+                for action in patchResetActionSequence:
+                    rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+                    rssi_history.append(rssi)
+                    pm.serial_send_syn(dev2, action)
+                rssi_pre = rssi
+            # command = input("Enter return for next around or q to back to mode selection: ")
+            # if command == 'q':
+            #     break
+        
+        start_time = time.time()
+        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        print(f"current rssi is {rssi}")
+        patchOpt(1, mode, dev)
+        patchOpt(2, mode, dev)
+        patchOpt(1, mode, dev2)
+        patchOpt(2, mode, dev2)
+        print(f"delay is {time.time() - start_time}s")
         i += 1
+
+
+
         
 
 
