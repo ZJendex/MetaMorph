@@ -253,13 +253,14 @@ def move(loc, cmd):
 
 
 # floor plan vertices
-L_Locations = [[163, 150], [384, 116], [442, 577], [442, 663], [396, 663], [396, 722], [640, 722], [640, 572], [552, 572], [552, 500], [583, 500], [583, 402], [600, 428], [795, 428], [795, 560], [846, 560], [846, 900], [535, 900], [535, 878], [483, 878], [483, 900], [197, 900], [199, 508], [163, 150]]
+L_Locations = [[95, 318], [538, 318], [538, 469], [682, 469], [682, 576], [919, 576], [919, 714], [341, 714], [341, 486], [100, 486]]
+
 vertices = np.array([L_Locations], dtype=np.int32)
 valid_area_mask = np.zeros((1000, 1000))
 outline_mask = np.zeros((1000, 1000))
 cv2.polylines(outline_mask, vertices, isClosed=True, color=1, thickness=7)
 cv2.fillPoly(valid_area_mask, vertices, 1)
-floor_map = jpgToArr.getCompressedJpgToGreyArr('floor_plan_res/compressed_image2.jpg')
+floor_map = jpgToArr.getCompressedJpgToGreyArr('floor_plan_res/smallfb_compressed_image2.jpg')
 
 '''
 TODO: 
@@ -271,25 +272,20 @@ data_start = 0 # crop data to calculate the rssi data for coreresponding route o
 RSSI_LIMIT = [-60, 0] # TODO: init RSSI limit
 tx_loc = [507, 780] # TODO: init Tx location for extropolation
 tx_loc = [780, 507] # TODO: inverse tx_loc to match the map set
-tx_loc = [770, 214]
+tx_loc = [486, 524]
 directory = "data/"     # TODO: init directory to save data and plot
 data_file = 'rssi_data_car.txt'  # TODO loading data path
 one_meter_distance = 17 # TODO: init one meter distance
 
 car_start = [0, 0, 0] # North 0, East 1, South 2, West 3 -- (x, y, direction)
-# 507 780 1 and 3
-# 381 750 0
-# wifi_RSSI_data = [-45, -40, -49, -43]
-# RSSI_data_location = [[197, 900], [846, 900], [151, 40], [690, 40]]
-
-# wifi_RSSI_data = [-10, -30, -60, -87]
-# RSSI_data_location = [[328, 840], [338, 840], [328, 830], [338, 830]]
-
-# wifi_RSSI_data = np.random.uniform(-50, -40, 24).tolist()
-# RSSI_data_location = L_Locations
-
-RSSI_data_location = [[220, 771], [273, 771], [333, 771], [333, 859], [396, 771], [390, 859], [424, 801], [424, 890], [477, 890], [477, 801], [450, 771], [511, 771], [568, 771], [568, 817], [629, 817], [641, 771], [694, 771], [694, 706], [714, 706], [714, 883], [831, 883], [774, 788], [831, 714], [831, 624], [775, 624], [714, 624], [661, 624], [701, 549], [652, 549], [645, 454], [702, 452], [776, 452], [382, 669], [335, 669], [276, 669], [221, 669], [211, 616], [205, 566], [268, 557], [333, 549], [301, 464], [340, 450], [411, 444], [409, 387], [397, 321], [394, 258], [324, 271], [393, 248], [378, 127], [310, 231], [308, 143], [265, 154], [272, 237], [267, 313], [190, 326], [297, 355], [313, 410]]
+# # small cic
+RSSI_data_location = [[111, 358],  [263, 358], [376, 358], [514, 358], [372, 498], [510, 467], [663, 467], [888, 590], [793, 590], [656, 590], [517, 590], [364, 590], [888, 686], [793, 686], [656, 686], [517, 686], [364, 686]]
 wifi_RSSI_data = []
+# wifi_RSSI_data = [-74, -75, -73, -65, -72, -63, -64, -64, -64, -64, -64, -64, -64, -64, -64, -64, -64]
+
+# # big cic
+# RSSI_data_location = [[220, 771], [273, 771], [333, 771], [333, 859], [396, 771], [390, 859], [424, 801], [424, 890], [477, 890], [477, 801], [450, 771], [511, 771], [568, 771], [568, 817], [629, 817], [641, 771], [694, 771], [694, 706], [714, 706], [714, 883], [831, 883], [774, 788], [831, 714], [831, 624], [775, 624], [714, 624], [661, 624], [701, 549], [652, 549], [645, 454], [702, 452], [776, 452], [382, 669], [335, 669], [276, 669], [221, 669], [211, 616], [205, 566], [268, 557], [333, 549], [301, 464], [340, 450], [411, 444], [409, 387], [397, 321], [394, 258], [324, 271], [393, 248], [378, 127], [310, 231], [308, 143], [265, 154], [272, 237], [267, 313], [190, 326], [297, 355], [313, 410]]
+# wifi_RSSI_data = []
 
 # wifi_RSSI_data = np.random.uniform(-50, -40, 100).tolist()
 # RSSI_data_location = [[i, j] for i in range(0, 1000, 100) for j in range(0, 1000, 100)]
@@ -300,7 +296,7 @@ program_id = time.time()
 while True:
     user_input = input("Please enter a command: ")
     if user_input == "":
-        n = 10
+        n = 30
         total_rssi = 0
         for i in range(n):
             total_rssi += int(retrieve_signal_strength.getCurrentWifiSignalInfo(raw=False))
