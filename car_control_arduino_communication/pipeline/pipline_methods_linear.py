@@ -116,3 +116,24 @@ def get_rssi_from_wifi_board(sock, addr, data_id_buff):
                     break 
     
     return rssi, data_id_buff
+
+def get_rssi_from_lora_board(dev):
+    start_time = time.time()
+    total_rssi = 0
+    num = 30
+    # Flush input buffer, discarding all its contents
+    dev.flushInput()
+    data_received = dev.readline().decode('utf-8').strip()
+    while (not data_received) or data_received.split()[0] != "TestRssi":
+        data_received = dev.readline().decode('utf-8').strip()
+
+    data_received = float(data_received.split()[1])
+    total_rssi += data_received
+    for _ in range(num-1):
+        data_received = dev.readline().decode('utf-8').strip()
+        data_received = float(data_received.split()[1])
+        total_rssi += data_received
+    
+    avg_rssi = total_rssi/num
+    print(f"Received LoRa avg rssi: {avg_rssi}")
+    return avg_rssi, 0

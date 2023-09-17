@@ -1,21 +1,13 @@
 import socket
-import readline
 import time
-import struct
-from datetime import datetime
 import serial
 from time import sleep
 import time
 import pipline_methods_linear as pm
-import gym
-from collections import deque, Counter
-from gym import spaces
+from collections import deque
 import numpy as np
-import statistics
 import signal
-import matplotlib.pyplot as plt
-import math
-import pickle
+
 
 rssi_history = []
 def signal_handler(sig, frame):
@@ -42,7 +34,7 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # test length
-tl = 4
+tl = 8
 
 data_id_buff = ""
 
@@ -92,8 +84,8 @@ test_start = time.time()
 rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 patch1TraverseActionSequence = [(BLOW, HOLD2)] * tl
 patch2TraverseActionSequence = [(HOLD, BLOW2)] * tl
-patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-1)
-patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-1)
+patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-3)
+patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-3)
 patchResetActionSequence = [(RELEASE, RELEASE2)] * 2
 actionHold = (HOLD, HOLD2)
 rssi_history = []
@@ -162,12 +154,12 @@ def patchOpt(patchNum, mode, dev):
         print(f"index is {index} where the target index is {tmp_index}")
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
         rssi_history.append(rssi)
-        pm.serial_send_syn(dev, action)
         if index == tmp_index:
-            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
-            rssi_history.append(rssi)
             pm.serial_send_syn(dev, actionHold)
             break
+        else:
+            pm.serial_send_syn(dev, action)
+            
         index += 1
     print(f"Patch {patchNum} optimize done")
     # rssi is the consequence of the pre action

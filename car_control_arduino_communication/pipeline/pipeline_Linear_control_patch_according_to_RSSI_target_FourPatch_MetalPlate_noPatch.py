@@ -1,21 +1,13 @@
 import socket
-import readline
 import time
-import struct
-from datetime import datetime
 import serial
 from time import sleep
 import time
 import pipline_methods_linear as pm
-import gym
-from collections import deque, Counter
-from gym import spaces
+from collections import deque
 import numpy as np
-import statistics
 import signal
-import matplotlib.pyplot as plt
-import math
-import pickle
+
 
 rssi_history = []
 def signal_handler(sig, frame):
@@ -42,7 +34,7 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # test length
-tl = 4
+tl = 8
 
 data_id_buff = ""
 
@@ -52,8 +44,8 @@ Comunication to patch control system
 # 0:BLOW 1:HOLD 2:RELEASE
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
 
-dev = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
-dev2 = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
+# dev = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
+# dev2 = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
 
 print("Establishing connection...")
 sleep(0.5)
@@ -92,13 +84,13 @@ test_start = time.time()
 rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 patch1TraverseActionSequence = [(BLOW, HOLD2)] * tl
 patch2TraverseActionSequence = [(HOLD, BLOW2)] * tl
-patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-1)
-patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-1)
+patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-3)
+patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-3)
 patchResetActionSequence = [(RELEASE, RELEASE2)] * 2
 actionHold = (HOLD, HOLD2)
 rssi_history = []
 
-def patchOpt(patchNum, mode, dev):
+def patchOpt(patchNum, mode):
     global data_id_buff
     print(f"Optimizaing patch {patchNum}")
     if mode == 1: # h
@@ -133,7 +125,7 @@ def patchOpt(patchNum, mode, dev):
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
         rssi_history.append(rssi)
         print(f"current rssi is {rssi}")
-        pm.serial_send_syn(dev, action)
+        sleep(1)
         if mode == 1: # h
             if tmp_rssi < rssi:
                 tmp_rssi = rssi
@@ -151,8 +143,8 @@ def patchOpt(patchNum, mode, dev):
     for action in resetActionSeq:
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
         rssi_history.append(rssi)
-        pm.serial_send_syn(dev, action)
-        
+        sleep(1)
+
     # pm.serial_send_syn(dev, actionHold)
     print("Reset Done")
     # sleep(1)
@@ -162,12 +154,12 @@ def patchOpt(patchNum, mode, dev):
         print(f"index is {index} where the target index is {tmp_index}")
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
         rssi_history.append(rssi)
-        pm.serial_send_syn(dev, action)
         if index == tmp_index:
-            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
-            rssi_history.append(rssi)
-            pm.serial_send_syn(dev, actionHold)
+            sleep(1)
             break
+        else:
+            sleep(1)
+            
         index += 1
     print(f"Patch {patchNum} optimize done")
     # rssi is the consequence of the pre action
@@ -209,10 +201,10 @@ while True:
                 for action in patchResetActionSequence:
                     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
                     rssi_history.append(rssi)
-                    pm.serial_send_syn(dev2, action)
+                    sleep(1)
                     rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
                     rssi_history.append(rssi)
-                    pm.serial_send_syn(dev, action)
+                    sleep(1)
                 
                 rssi_pre = rssi
                 rssi_hisque.append(rssi_pre)
@@ -229,10 +221,10 @@ while True:
         start_time = time.time()
         rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
         print(f"current rssi is {rssi}")
-        patchOpt(1, mode, dev)
-        patchOpt(2, mode, dev)
-        patchOpt(1, mode, dev2)
-        patchOpt(2, mode, dev2)
+        patchOpt(1, mode)
+        patchOpt(2, mode)
+        patchOpt(1, mode)
+        patchOpt(2, mode)
         print(f"delay is {time.time() - start_time}s")
         i += 1
 

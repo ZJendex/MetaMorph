@@ -27,9 +27,10 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-dev = serial.Serial("/dev/cu.usbmodem11301", baudrate=9600)
+dev = serial.Serial("/dev/cu.usbmodem12403", baudrate=115200)
 print("Establishing connection...")
 sleep(0.5)
+print("Done!")
 
 # # test the serial send
 # while True:
@@ -55,7 +56,16 @@ action(Action1, Action2)
 Action1: 0, 1, 2 where 0 is blow, 1 is hold, 2 is release
 Action2: 0, 1, 2 where 0 is blow, 1 is hold, 2 is release
 '''
-while True:
-    command = input("Please input [0,1,2][0,1,2] to control the patch:")
-    action = (int(command[0]), int(command[1]))
-    pm.serial_send_syn(dev, action)
+start_time = time.time()
+rssi_his = []
+while time.time() - start_time < 10:
+    data_received = dev.readline().decode('utf-8').strip()
+        
+    if data_received:  # if data is not empty
+        print(f"Received data: {data_received}")
+    
+    rssi_his.append(data_received)
+
+with open('../data_pipeline/1000_sf7_noise.txt', 'w') as f:
+    for item in rssi_his:
+        f.write(f"{item}\n")

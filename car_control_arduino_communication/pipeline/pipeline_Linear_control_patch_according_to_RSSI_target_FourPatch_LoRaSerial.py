@@ -51,50 +51,22 @@ Comunication to patch control system
 '''
 # 0:BLOW 1:HOLD 2:RELEASE
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-
 dev = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
 dev2 = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
+dev3 = serial.Serial("/dev/cu.usbmodem1203", baudrate=115200)
 
 print("Establishing connection...")
 sleep(0.5)
 
 
-'''
-Communication to wifi board
-'''
-# Set up a UDP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-# Replace with your desired host and port
-# Host ip address on MAC >ipconfig getifaddr en0
-# port should be set as same as you set in arduino code
-host = '192.168.1.150'
-port = 2391
-startCode = "hi"
-endCode = "bye"
-
-# Bind the socket to the address
-sock.bind((host, port))
-
-print("Wait for the start code...")
-# To get the addr from sender(the arduino ip address)
-# the arduino should send the message first
-data, addr = sock.recvfrom(1024)
-while data.decode() != startCode:
-    continue
-
-# start get RSSI data
-user_inputs = "start"
-print(f'Sending message: {user_inputs} to {addr}')
-sock.sendto(user_inputs.encode(), addr)
 
 test_start = time.time()
-rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
 patch1TraverseActionSequence = [(BLOW, HOLD2)] * tl
 patch2TraverseActionSequence = [(HOLD, BLOW2)] * tl
 patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-1)
 patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-1)
-patchResetActionSequence = [(RELEASE, RELEASE2)] * 2
+patchResetActionSequence = [(RELEASE, RELEASE2)] * (tl-1)
 actionHold = (HOLD, HOLD2)
 rssi_history = []
 
@@ -130,7 +102,7 @@ def patchOpt(patchNum, mode, dev):
     index = 0
     for action in traverseActionSeq:
         # rssi is the consequence of the pre action
-        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
         rssi_history.append(rssi)
         print(f"current rssi is {rssi}")
         pm.serial_send_syn(dev, action)
@@ -149,7 +121,7 @@ def patchOpt(patchNum, mode, dev):
     print("Resetting...")
     # reset
     for action in resetActionSeq:
-        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
         rssi_history.append(rssi)
         pm.serial_send_syn(dev, action)
         
@@ -160,24 +132,23 @@ def patchOpt(patchNum, mode, dev):
     index = 0
     for action in traverseActionSeq:
         print(f"index is {index} where the target index is {tmp_index}")
-        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
         rssi_history.append(rssi)
         pm.serial_send_syn(dev, action)
         if index == tmp_index:
-            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+            rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
             rssi_history.append(rssi)
             pm.serial_send_syn(dev, actionHold)
             break
         index += 1
     print(f"Patch {patchNum} optimize done")
     # rssi is the consequence of the pre action
-    # rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+    rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
     print(f"final rssi is {rssi}, the target rssi is {tmp_rssi}")
 
 while True:
     # Read user input
-    # user_input = input("Enter 'h' for mode 1 or 'l' for mode 2: ")
-    user_input = 'h'
+    user_input = input("Enter 'h' for mode 1 or 'l' for mode 2: ")
 
     # Check the input and change the mode accordingly
     if user_input == 'h':
@@ -192,49 +163,39 @@ while True:
     start_time = time.time()
     init_time = start_time
     total_time = 0
-    rssi_pre = rssi
-    rssi_hisque = deque(maxlen=5)
+    rssi_pre = 0
+    rssi_seq = []
     while True:
+        print(f"i is {i}")
         if i != 0:
-            rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+            rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
             rssi_history.append(rssi)
             print(f"INIT rssi is {rssi}")
-            sleep(1)
-            # if rssi - rssi_pre >= -5: # decrease above 5db
-
-            if len(rssi_hisque) == 5 and (max(rssi_hisque) - min(rssi_hisque) > 5): # decrease above 5db
-                print("new loop")
-                rssi_hisque = deque(maxlen=5)
-                # reset upper
-                for action in patchResetActionSequence:
-                    rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
-                    rssi_history.append(rssi)
-                    pm.serial_send_syn(dev2, action)
-                    rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
-                    rssi_history.append(rssi)
-                    pm.serial_send_syn(dev, action)
-                
-                rssi_pre = rssi
-                rssi_hisque.append(rssi_pre)
-            else:
-                print("nothing to do")
-                rssi_pre = rssi
-                rssi_hisque.append(rssi_pre)
-                continue
-                
+            sleep(1)     
+            continue   
             # command = input("Enter return for next around or q to back to mode selection: ")
             # if command == 'q':
             #     break
+        # if i % 1 == 0 and i != 0:
+        #     command = input("Enter return for next around or q to back to mode selection or t to get a sequence of rssi data: ")
+        #     if command == 'q':
+        #         break
+        #     if command == 't':
+        #         rssi_seq = []
+        #         for i in range(30):
+        #             rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
+        #             rssi_seq.append(rssi)
+        #         print(rssi_seq)
         
         start_time = time.time()
-        rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
+        rssi, data_id_buff = pm.get_rssi_from_lora_board(dev3)
         print(f"current rssi is {rssi}")
         patchOpt(1, mode, dev)
         patchOpt(2, mode, dev)
         patchOpt(1, mode, dev2)
         patchOpt(2, mode, dev2)
-        print(f"delay is {time.time() - start_time}s")
-        i += 1
+        print(f"delay time is {time.time() -  start_time}")
+        i = 1
 
 
 

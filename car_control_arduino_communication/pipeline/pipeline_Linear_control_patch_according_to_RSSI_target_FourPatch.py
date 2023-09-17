@@ -91,9 +91,9 @@ test_start = time.time()
 rssi, data_id_buff = pm.get_rssi_from_wifi_board(sock, addr, data_id_buff)
 patch1TraverseActionSequence = [(BLOW, HOLD2)] * tl
 patch2TraverseActionSequence = [(HOLD, BLOW2)] * tl
-patch1ResetActionSequence = [(RELEASE, HOLD2)] * tl
-patch2ResetActionSequence = [(HOLD, RELEASE2)] * tl
-patchResetActionSequence = [(RELEASE, RELEASE2)] * tl
+patch1ResetActionSequence = [(RELEASE, HOLD2)] * (tl-1)
+patch2ResetActionSequence = [(HOLD, RELEASE2)] * (tl-1)
+patchResetActionSequence = [(RELEASE, RELEASE2)] * (tl-1)
 actionHold = (HOLD, HOLD2)
 rssi_history = []
 
