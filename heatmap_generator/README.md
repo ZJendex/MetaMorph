@@ -1,4 +1,11 @@
-# Heatmap Generate
+# Heatmap Generate v2.0 Aug18
+## Manually generate CIC Heatmap 
+if using windows computer, rewrite the retrieved signal strength method at path lib.retrieve_signal_strength
+\>python heatmap_generator_termianl_app*
+To collect the data
+\>[return] 
+After collect 57 date point -- Plot it
+# Heatmap Generate v1.0
 ## Manually with RSSI data
 1. In heatmap_generate_by_huamn_walk.py TODO Section
     - Fill SSI_data_location with [x, y] location

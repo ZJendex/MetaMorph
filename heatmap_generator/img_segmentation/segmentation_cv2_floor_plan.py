@@ -1,12 +1,12 @@
 import cv2
 import numpy as np
 
-img = cv2.imread('IMG_74CD2F752CE5-1.jpeg')
+img = cv2.imread('../floor_plan_res/smallfb.png')
 # Resize the image to a smaller size of 100x100
 resized = cv2.resize(img, (1000, 1000))
 
 # Save the compressed image
-cv2.imwrite('compressed_image2.jpg', resized)
+cv2.imwrite('../floor_plan_res/smallfb_compressed_image2.jpg', resized)
 
 # Convert the image to grayscale
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)

@@ -300,11 +300,13 @@ program_id = time.time()
 while True:
     user_input = input("Please enter a command: ")
     if user_input == "":
-        n = 10
+        n = 25
         total_rssi = 0
         for i in range(n):
-            total_rssi += int(retrieve_signal_strength.getCurrentWifiSignalInfo(raw=False))
-            time.sleep(0.1)
+            rssi = int(retrieve_signal_strength.getCurrentWifiSignalInfo(raw=False))
+            print(f"cur rssi is {rssi}")
+            total_rssi += rssi
+            time.sleep(0.2)
         cur_rssi = total_rssi / n
         print(cur_rssi)
         wifi_RSSI_data.append(cur_rssi)

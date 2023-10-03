@@ -1,5 +1,6 @@
 import subprocess
 import re
+import time
 
 '''
 This function returns the current wifi signal strength in dBm

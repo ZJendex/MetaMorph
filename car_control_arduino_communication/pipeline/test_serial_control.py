@@ -27,7 +27,7 @@ HOLD2 = 1
 RELEASE2 = 2
 
 # dev = serial.Serial("/dev/cu.usbmodem101", baudrate=9600)
-dev = serial.Serial("/dev/cu.usbmodem1101", baudrate=9600)
+dev = serial.Serial("/dev/cu.usbmodem1301", baudrate=9600)
 print("Establishing connection...")
 sleep(0.5)
 
